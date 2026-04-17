@@ -1,4 +1,4 @@
-class RsPowerCard extends HTMLElement {
+class CscPowerCard extends HTMLElement {
     constructor() {
         super();
         this.attachShadow({mode: 'open'});
@@ -259,4 +259,4 @@ class RsPowerCard extends HTMLElement {
     }
 
 }
-customElements.define("rs-power-card", RsPowerCard);
+customElements.define("csc-power-card", RsPowerCard);
