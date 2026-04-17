@@ -1,5 +1,6 @@
 {
   "name": "CSC Power Card",
   "content_in_root": false,
+  "filename": "csc-power-card.js",
   "render_readme": true
 }
