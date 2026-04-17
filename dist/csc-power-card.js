@@ -259,4 +259,4 @@ class CscPowerCard extends HTMLElement {
     }
 
 }
-customElements.define("csc-power-card", RsPowerCard);
+customElements.define("csc-power-card", CscPowerCard);
