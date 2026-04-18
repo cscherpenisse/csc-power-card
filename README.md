@@ -1,2 +1,4 @@
 # csc-power-card
-Power Flow
+CSC Power Flow Card
+
+Inspired by: https://github.com/renespit/rs_power_card
