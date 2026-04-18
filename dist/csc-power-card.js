@@ -14,118 +14,111 @@ class CscPowerCard extends HTMLElement {
         this.render();
     }
 
+    // ✅ FIX: veilige state reader
+    getState(entity) {
+        if (!entity) return 0;
+        const stateObj = this._hass.states[entity];
+        if (!stateObj) return 0;
+
+        const val = parseFloat(stateObj.state);
+        return isNaN(val) ? 0 : val;
+    }
+
     initialRender() {
-        const groups = this.config.solar?.groups ?? [];
-        const devices = (this.config.home?.devices ?? []);
         const batteries = this.config.battery?.list ?? [];
 
-        let currentYPos = 15;
-        const groupPositions = groups.map(group => {
-            const pos = currentYPos;
-            const rows = Math.ceil((group.entities || []).length / 4);
-            currentYPos += (rows * 70) + 25;
-            return pos;
-        });
+        const houseY = 180;
+        const solarY = 100;
+        const gridY = 100;
 
-        const flowBoxY = currentYPos + 5;
-        const animStartPos = flowBoxY + 75;
-        const shiftY = 50;
-        const houseYCenter = animStartPos + shiftY;
-
-        let allPaths = '';
-        let allLinesBg = '';
-        let allLinesMove = '';
-        let allDonuts = '';
-        let allLabels = '';
+        let paths = '';
+        let linesBg = '';
+        let linesMove = '';
+        let donuts = '';
 
         // =====================
         // 🔋 BATTERIJEN
         // =====================
-        const batY = houseYCenter - 80;
-        const batX1 = 160;
-        const batX2 = 240;
+        const batY = houseY - 80;
+        const batX = [160, 240];
 
         batteries.forEach((b, i) => {
-            const x = i === 0 ? batX1 : batX2;
+            const x = batX[i] || 200;
 
-            allDonuts += `<g>${this.renderDonutStatic(x, batY, "#4caf50", "🔋", b.name, `bat_${i}`)}</g>`;
+            donuts += this.renderDonut(x, batY, "#4caf50", "🔋", b.name, `bat_${i}`);
 
             // Huis ↔ batterij
-            const pathHB = `path_huis_bat_${i}`;
-            allPaths += `<path id="${pathHB}" d="
-                M 200 ${houseYCenter - 20}
-                L 200 ${batY + 30}
-                L ${x} ${batY + 30}
-                L ${x} ${batY + 18}" />`;
-
-            allLinesBg += `<use class="line-bg" href="#${pathHB}" />`;
-            allLinesMove += `<use class="line-move" id="move_huis_bat_${i}" href="#${pathHB}" />`;
+            const p1 = `path_huis_bat_${i}`;
+            paths += `<path id="${p1}" d="M200 ${houseY} L200 ${batY+20} L${x} ${batY+20} L${x} ${batY}" />`;
+            linesBg += `<use class="line-bg" href="#${p1}" />`;
+            linesMove += `<use class="line-move" id="move_huis_bat_${i}" href="#${p1}" />`;
 
             // Zon → batterij
-            const pathZB = `path_zon_bat_${i}`;
-            allPaths += `<path id="${pathZB}" d="
-                M 80 ${animStartPos + 25}
-                L 80 ${batY}
-                L ${x} ${batY}" />`;
-
-            allLinesBg += `<use class="line-bg" href="#${pathZB}" />`;
-            allLinesMove += `<use class="line-move" id="move_zon_bat_${i}" href="#${pathZB}" />`;
+            const p2 = `path_zon_bat_${i}`;
+            paths += `<path id="${p2}" d="M80 ${solarY} L80 ${batY} L${x} ${batY}" />`;
+            linesBg += `<use class="line-bg" href="#${p2}" />`;
+            linesMove += `<use class="line-move" id="move_zon_bat_${i}" href="#${p2}" />`;
 
             // Net → batterij
-            const pathNB = `path_net_bat_${i}`;
-            allPaths += `<path id="${pathNB}" d="
-                M 320 ${animStartPos + 25}
-                L 320 ${batY}
-                L ${x} ${batY}" />`;
-
-            allLinesBg += `<use class="line-bg" href="#${pathNB}" />`;
-            allLinesMove += `<use class="line-move" id="move_net_bat_${i}" href="#${pathNB}" />`;
+            const p3 = `path_net_bat_${i}`;
+            paths += `<path id="${p3}" d="M320 ${gridY} L320 ${batY} L${x} ${batY}" />`;
+            linesBg += `<use class="line-bg" href="#${p3}" />`;
+            linesMove += `<use class="line-move" id="move_net_bat_${i}" href="#${p3}" />`;
         });
 
         // =====================
-        // ORIGINELE PADEN
+        // BASIS PADEN
         // =====================
-        allPaths += `<path id="path_zon_huis" d="M 80 ${animStartPos + 25} L 80 ${animStartPos + shiftY} L 175 ${animStartPos + shiftY}" />`;
-        allPaths += `<path id="path_huis_net" d="M 225 ${animStartPos + shiftY} L 320 ${animStartPos + shiftY} L 320 ${animStartPos + 25}" />`;
+        paths += `<path id="path_zon_huis" d="M80 ${solarY} L80 ${houseY} L200 ${houseY}" />`;
+        paths += `<path id="path_huis_net" d="M200 ${houseY} L320 ${houseY} L320 ${gridY}" />`;
 
-        // =====================
-        // RENDER
-        // =====================
         this.shadowRoot.innerHTML = `
         <style>
-            .line-bg { stroke:#333; stroke-width:2; fill:none; }
-            .line-move {
-                stroke:#00ffcc;
-                stroke-width:6;
-                stroke-linecap:round;
-                stroke-dasharray:0.3,100;
-                animation:flow 3s linear infinite;
-                filter: drop-shadow(0 0 6px #00ffcc);
+            .line-bg {
+                stroke:#444;
+                stroke-width:2;
+                fill:none;
             }
-            .line-move.reverse { animation-direction: reverse; }
+
+            .line-move {
+                stroke:#00e5ff;
+                stroke-width:5;
+                stroke-linecap:round;
+                stroke-dasharray:0.5, 12;
+                animation: flow 2s linear infinite;
+                filter: drop-shadow(0 0 5px #00e5ff);
+            }
+
+            .reverse {
+                animation-direction: reverse;
+            }
 
             @keyframes flow {
-                from { stroke-dashoffset:100; }
-                to { stroke-dashoffset:0; }
+                from { stroke-dashoffset: 50; }
+                to { stroke-dashoffset: 0; }
             }
         </style>
 
         <ha-card>
-        <svg viewBox="0 0 800 ${houseYCenter + 120}">
-            <defs>${allPaths}</defs>
+        <svg viewBox="0 0 400 260">
 
-            <g>${allLinesBg}</g>
+            <defs>${paths}</defs>
 
-            <g>${allLinesMove}
+            <g>${linesBg}</g>
+
+            <g>
+                ${linesMove}
                 <use class="line-move" id="move_zon" href="#path_zon_huis"/>
                 <use class="line-move" id="move_net" href="#path_huis_net"/>
             </g>
 
-            <g>${allDonuts}
-                ${this.renderDonutStatic(80, animStartPos, "#ff9800", "☀️", "Zon", "zon")}
-                ${this.renderDonutStatic(200, houseYCenter, "#2196f3", "🏠", "Huis", "huis")}
-                ${this.renderDonutStatic(320, animStartPos, "#8353d1", "🔌", "Net", "net")}
+            <g>
+                ${donuts}
+                ${this.renderDonut(80, ${solarY}, "#ff9800", "☀️", "Zon", "zon")}
+                ${this.renderDonut(200, ${houseY}, "#2196f3", "🏠", "Huis", "huis")}
+                ${this.renderDonut(320, ${gridY}, "#9c27b0", "🔌", "Net", "net")}
             </g>
+
         </svg>
         </ha-card>
         `;
@@ -133,16 +126,18 @@ class CscPowerCard extends HTMLElement {
         this._initialized = true;
     }
 
-    renderDonutStatic(x, y, color, icon, label, id) {
+    renderDonut(x, y, color, icon, label, id) {
         return `
-        <circle cx="${x}" cy="${y}" r="18" fill="none" stroke="#444" stroke-width="5"/>
-        <circle id="ring_${id}" cx="${x}" cy="${y}" r="18"
-            fill="none" stroke="${color}" stroke-width="5"
-            stroke-dasharray="113" stroke-dashoffset="113"
-            transform="rotate(-90 ${x} ${y})"/>
-        <text x="${x}" y="${y+5}" text-anchor="middle">${icon}</text>
-        <text x="${x+25}" y="${y-4}">${label}</text>
-        <text id="val_${id}" x="${x+25}" y="${y+12}" fill="${color}">0W</text>
+        <g>
+            <circle cx="${x}" cy="${y}" r="18" fill="none" stroke="#333" stroke-width="4"/>
+            <circle id="ring_${id}" cx="${x}" cy="${y}" r="18"
+                fill="none" stroke="${color}" stroke-width="4"
+                stroke-dasharray="113" stroke-dashoffset="113"
+                transform="rotate(-90 ${x} ${y})"/>
+            <text x="${x}" y="${y+5}" text-anchor="middle">${icon}</text>
+            <text x="${x+25}" y="${y-4}" fill="#ccc">${label}</text>
+            <text id="val_${id}" x="${x+25}" y="${y+12}" fill="${color}">0W</text>
+        </g>
         `;
     }
 
@@ -150,54 +145,53 @@ class CscPowerCard extends HTMLElement {
         if (!this._hass || !this.config) return;
         if (!this._initialized) this.initialRender();
 
-        const solar = parseFloat(this._hass.states[this.config.solar?.gateway?.entity]?.state ?? 0);
-        const grid = parseFloat(this._hass.states[this.config.grid?.entity]?.state ?? 0);
+        // ✅ FIXED DATA
+        const solar = this.getState(this.config.solar?.gateway?.entity);
+        const grid = this.getState(this.config.grid?.entity);
         const home = solar + grid;
+
+        // =====================
+        // UPDATE BASIS
+        // =====================
+        this.setText("zon", solar);
+        this.setText("net", grid);
+        this.setText("huis", home);
+
+        this.toggleFlow("move_zon", solar > 5, false);
+        this.toggleFlow("move_net", Math.abs(grid) > 5, grid > 0);
 
         // =====================
         // 🔋 BATTERIJEN
         // =====================
         (this.config.battery?.list ?? []).forEach((b, i) => {
-            const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
-            const soc = parseFloat(this._hass.states[b.soc]?.state ?? 0);
+            const power = this.getState(b.power);
+            const soc = this.getState(b.soc);
 
-            const valEl = this.shadowRoot.getElementById(`val_bat_${i}`);
-            if (valEl) valEl.textContent = `${Math.round(power)}W (${Math.round(soc)}%)`;
+            const el = this.shadowRoot.getElementById(`val_bat_${i}`);
+            if (el) el.textContent = `${Math.round(power)}W (${Math.round(soc)}%)`;
 
-            this.updateEntity(`bat_${i}`, power, 5000);
+            // Huis ↔ batterij
+            this.toggleFlow(`move_huis_bat_${i}`, Math.abs(power) > 5, power < 0);
 
-            // FLOW RICHTINGEN
-            const moveHB = this.shadowRoot.getElementById(`move_huis_bat_${i}`);
-            const moveZB = this.shadowRoot.getElementById(`move_zon_bat_${i}`);
-            const moveNB = this.shadowRoot.getElementById(`move_net_bat_${i}`);
+            // Zon → batterij
+            this.toggleFlow(`move_zon_bat_${i}`, solar > 5, false);
 
-            if (moveHB) {
-                moveHB.style.visibility = Math.abs(power) > 5 ? 'visible' : 'hidden';
-                moveHB.classList.toggle('reverse', power < 0);
-            }
-
-            if (moveZB) moveZB.style.visibility = solar > 5 ? 'visible' : 'hidden';
-            if (moveNB) moveNB.style.visibility = Math.abs(grid) > 5 ? 'visible' : 'hidden';
+            // Net → batterij
+            this.toggleFlow(`move_net_bat_${i}`, Math.abs(grid) > 5, false);
         });
-
-        // BASIS
-        this.updateEntity('zon', solar, 5000);
-        this.updateEntity('huis', home, 5000);
-        this.updateEntity('net', grid, 5000);
-
-        const moveZon = this.shadowRoot.getElementById('move_zon');
-        if (moveZon) moveZon.style.visibility = solar > 5 ? 'visible' : 'hidden';
-
-        const moveNet = this.shadowRoot.getElementById('move_net');
-        if (moveNet) {
-            moveNet.style.visibility = Math.abs(grid) > 5 ? 'visible' : 'hidden';
-            moveNet.classList.toggle('reverse', grid > 0);
-        }
     }
 
-    updateEntity(id, val, max) {
+    setText(id, val) {
         const el = this.shadowRoot.getElementById(`val_${id}`);
         if (el) el.textContent = `${Math.round(val)}W`;
+    }
+
+    toggleFlow(id, show, reverse) {
+        const el = this.shadowRoot.getElementById(id);
+        if (!el) return;
+
+        el.style.visibility = show ? "visible" : "hidden";
+        el.classList.toggle("reverse", reverse);
     }
 }
 
