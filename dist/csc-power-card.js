@@ -1,7 +1,7 @@
 class CscPowerCard extends HTMLElement {
     constructor() {
         super();
-        this.attachShadow({mode: 'open'});
+        this.attachShadow({ mode: "open" });
         this._initialized = false;
     }
 
@@ -18,14 +18,14 @@ class CscPowerCard extends HTMLElement {
         const animStartPos = 80;
         const houseYCenter = 140;
 
-        const batteriesEnabled = this.config.battery?.show ?? false;
-        const batteries = batteriesEnabled ? (this.config.battery?.list ?? []) : [];
+        const groups = this.config.solar?.groups ?? [];
+        const batteries = this.config.battery?.show ? (this.config.battery?.list ?? []) : [];
         const devices = this.config.home?.devices ?? [];
 
-        let allPaths = '';
-        let allLinesBg = '';
-        let allLinesMove = '';
-        let allDonuts = '';
+        let allPaths = "";
+        let allLinesBg = "";
+        let allLinesMove = "";
+        let allDonuts = "";
 
         // =====================
         // 🌞 BASIS NODES
@@ -33,6 +33,43 @@ class CscPowerCard extends HTMLElement {
         allDonuts += this.renderDonut(80, animStartPos, "#ff9800", "☀️", "Zon", "zon");
         allDonuts += this.renderDonut(200, houseYCenter, "#2196f3", "🏠", "Huis", "huis");
         allDonuts += this.renderDonut(320, animStartPos, "#8353d1", "🔌", "Net", "net");
+
+        // =====================
+        // ☀️ SOLAR GROUPS (ZONNEPANELEN)
+        // =====================
+        groups.forEach((group, gIdx) => {
+            const startY = 20 + (gIdx * 120);
+
+            (group.entities || []).forEach((item, i) => {
+                const col = i % 4;
+                const row = Math.floor(i / 4);
+
+                const x = 60 + (col * 90);
+                const y = startY + (row * 70);
+
+                const pathId = `path_g${gIdx}_i${i}`;
+
+                const path = `
+                    M ${x} ${y - 20}
+                    L ${x} ${y - 60}
+                    L 80 ${y - 60}
+                    L 80 ${houseYCenter}
+                `;
+
+                allPaths += `<path id="${pathId}" d="${path}" />`;
+                allLinesBg += `<use class="line-bg" href="#${pathId}" />`;
+                allLinesMove += `<use class="line-move" id="move_g${gIdx}_i${i}" href="#${pathId}" />`;
+
+                allDonuts += this.renderDonut(
+                    x,
+                    y,
+                    "#ffeb3b",
+                    "☀️",
+                    `P${i + 1}`,
+                    `g${gIdx}_i${i}`
+                );
+            });
+        });
 
         // =====================
         // ☀️ ZON → HUIS
@@ -171,8 +208,6 @@ class CscPowerCard extends HTMLElement {
             </svg>
         </ha-card>
         `;
-
-        this._initialized = true;
     }
 
     renderDonut(x, y, color, icon, label, id) {
@@ -189,17 +224,21 @@ class CscPowerCard extends HTMLElement {
 
     render() {
         if (!this._hass || !this.config) return;
+
         if (!this._initialized) this.initialRender();
 
         // =====================
-        // ☀️ SOLAR
+        // ☀️ ZON
         // =====================
         const solar = parseFloat(this._hass.states[this.config.solar?.gateway?.entity]?.state ?? 0);
         const solarEl = this.shadowRoot.getElementById("move_solar");
 
         if (solarEl) {
-            solarEl.style.visibility = solar > 5 ? 'visible' : 'hidden';
+            solarEl.style.visibility = solar > 5 ? "visible" : "hidden";
         }
+
+        const zonVal = this.shadowRoot.getElementById("val_zon");
+        if (zonVal) zonVal.textContent = `${Math.round(solar)}W`;
 
         // =====================
         // 🔌 GRID
@@ -208,9 +247,19 @@ class CscPowerCard extends HTMLElement {
         const gridEl = this.shadowRoot.getElementById("move_grid");
 
         if (gridEl) {
-            gridEl.style.visibility = Math.abs(grid) > 5 ? 'visible' : 'hidden';
-            gridEl.classList.toggle('reverse', grid > 0);
+            gridEl.style.visibility = Math.abs(grid) > 5 ? "visible" : "hidden";
+            gridEl.classList.toggle("reverse", grid > 0);
         }
+
+        const netVal = this.shadowRoot.getElementById("val_net");
+        if (netVal) netVal.textContent = `${Math.round(grid)}W`;
+
+        // =====================
+        // 🏠 HUIS
+        // =====================
+        const home = solar + grid;
+        const huisVal = this.shadowRoot.getElementById("val_huis");
+        if (huisVal) huisVal.textContent = `${Math.round(home)}W`;
 
         // =====================
         // 🔋 BATTERIJEN
@@ -220,15 +269,15 @@ class CscPowerCard extends HTMLElement {
                 const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
                 const soc = parseFloat(this._hass.states[b.soc]?.state ?? 0);
 
-                const val = this.shadowRoot.getElementById(`val_bat_${i}`);
-                if (val) {
-                    val.textContent = `${Math.round(power)}W (${Math.round(soc)}%)`;
+                const el = this.shadowRoot.getElementById(`val_bat_${i}`);
+                if (el) {
+                    el.textContent = `${Math.round(power)}W (${Math.round(soc)}%)`;
                 }
 
                 const move = this.shadowRoot.getElementById(`move_bat_${i}`);
                 if (move) {
-                    move.style.visibility = Math.abs(power) > 5 ? 'visible' : 'hidden';
-                    move.classList.toggle('reverse', power < 0);
+                    move.style.visibility = Math.abs(power) > 5 ? "visible" : "hidden";
+                    move.classList.toggle("reverse", power < 0);
                 }
             });
         }
@@ -240,13 +289,11 @@ class CscPowerCard extends HTMLElement {
             const val = parseFloat(this._hass.states[d.entity]?.state ?? 0);
 
             const el = this.shadowRoot.getElementById(`val_dev_${i}`);
-            if (el) {
-                el.textContent = `${Math.round(val)}W`;
-            }
+            if (el) el.textContent = `${Math.round(val)}W`;
 
             const move = this.shadowRoot.getElementById(`move_dev_${i}`);
             if (move) {
-                move.style.visibility = val > 5 ? 'visible' : 'hidden';
+                move.style.visibility = val > 5 ? "visible" : "hidden";
             }
         });
     }
