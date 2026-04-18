@@ -15,25 +15,41 @@ class CscPowerCard extends HTMLElement {
     }
 
     initialRender() {
-        const groups = this.config.solar?.groups ?? [];
         const batteriesEnabled = this.config.battery?.show ?? false;
         const batteries = batteriesEnabled ? (this.config.battery?.list ?? []) : [];
 
-        let currentYPos = 15;
-
-        const flowBoxY = currentYPos + 5;
-        const animStartPos = flowBoxY + 75;
-        const houseYCenter = animStartPos + 50;
+        const animStartPos = 80;
+        const houseYCenter = 140;
 
         let allPaths = '';
         let allLinesBg = '';
         let allLinesMove = '';
         let allDonuts = '';
 
-        // 🌞 BASIS DONUTS
-        allDonuts += this.renderDonutStatic(80, animStartPos, "#ff9800", "☀️", "Zon", "zon");
-        allDonuts += this.renderDonutStatic(200, houseYCenter, "#2196f3", "🏠", "Huis", "huis");
-        allDonuts += this.renderDonutStatic(320, animStartPos, "#8353d1", "🔌", "Net", "net");
+        // 🌞 DONUTS
+        allDonuts += this.renderDonut(80, animStartPos, "#ff9800", "☀️", "Zon", "zon");
+        allDonuts += this.renderDonut(200, houseYCenter, "#2196f3", "🏠", "Huis", "huis");
+        allDonuts += this.renderDonut(320, animStartPos, "#8353d1", "🔌", "Net", "net");
+
+        // ☀️ ZON → HUIS
+        const pathSolar = `
+            M 80 ${animStartPos + 20}
+            L 80 ${houseYCenter}
+            L 200 ${houseYCenter}
+        `;
+        allPaths += `<path id="path_solar" d="${pathSolar}" />`;
+        allLinesBg += `<use class="line-bg" href="#path_solar" />`;
+        allLinesMove += `<use class="line-move" id="move_solar" href="#path_solar" />`;
+
+        // 🔌 NET ↔ HUIS
+        const pathGrid = `
+            M 320 ${animStartPos + 20}
+            L 320 ${houseYCenter}
+            L 200 ${houseYCenter}
+        `;
+        allPaths += `<path id="path_grid" d="${pathGrid}" />`;
+        allLinesBg += `<use class="line-bg" href="#path_grid" />`;
+        allLinesMove += `<use class="line-move" id="move_grid" href="#path_grid" />`;
 
         // 🔋 BATTERIJEN
         const batteryY = houseYCenter + 120;
@@ -42,7 +58,7 @@ class CscPowerCard extends HTMLElement {
         batteries.forEach((b, i) => {
             const x = batteryStartX + (i * 140);
 
-            allDonuts += this.renderDonutStatic(
+            allDonuts += this.renderDonut(
                 x,
                 batteryY,
                 "#4caf50",
@@ -53,7 +69,7 @@ class CscPowerCard extends HTMLElement {
 
             const pathId = `path_bat_${i}`;
             const pathD = `
-                M 200 ${houseYCenter + 25}
+                M 200 ${houseYCenter + 20}
                 L 200 ${batteryY - 40}
                 L ${x} ${batteryY - 40}
                 L ${x} ${batteryY - 18}
@@ -100,9 +116,7 @@ class CscPowerCard extends HTMLElement {
             </style>
 
             <svg viewBox="0 0 800 ${batteryY + 100}">
-                <defs>
-                    ${allPaths}
-                </defs>
+                <defs>${allPaths}</defs>
 
                 <g>${allLinesBg}</g>
                 <g>${allLinesMove}</g>
@@ -114,11 +128,11 @@ class CscPowerCard extends HTMLElement {
         this._initialized = true;
     }
 
-    renderDonutStatic(x, y, color, icon, label, id) {
+    renderDonut(x, y, color, icon, label, id) {
         return `
         <circle cx="${x}" cy="${y}" r="18" fill="none" stroke="#444" stroke-width="5" />
-        <circle id="ring_${id}" cx="${x}" cy="${y}" r="18" fill="none" stroke="${color}" stroke-width="5"
-            stroke-dasharray="113" stroke-dashoffset="113"
+        <circle cx="${x}" cy="${y}" r="18" fill="none" stroke="${color}" stroke-width="5"
+            stroke-dasharray="113" stroke-dashoffset="20"
             transform="rotate(-90 ${x} ${y})" />
         <text x="${x}" y="${y + 4}" text-anchor="middle">${icon}</text>
         <text x="${x + 25}" y="${y - 4}">${label}</text>
@@ -130,7 +144,30 @@ class CscPowerCard extends HTMLElement {
         if (!this._hass || !this.config) return;
         if (!this._initialized) this.initialRender();
 
-        // 🔋 BATTERIJ UPDATE
+        // ☀️ ZON
+        const solarPower = parseFloat(this._hass.states[this.config.solar?.gateway?.entity]?.state ?? 0);
+        const solarEl = this.shadowRoot.getElementById("move_solar");
+
+        if (solarEl) {
+            solarEl.style.visibility = Math.abs(solarPower) > 5 ? 'visible' : 'hidden';
+            solarEl.classList.remove('reverse');
+        }
+
+        // 🔌 NET
+        const gridPower = parseFloat(this._hass.states[this.config.grid?.entity]?.state ?? 0);
+        const gridEl = this.shadowRoot.getElementById("move_grid");
+
+        if (gridEl) {
+            gridEl.style.visibility = Math.abs(gridPower) > 5 ? 'visible' : 'hidden';
+
+            if (gridPower > 0) {
+                gridEl.classList.add('reverse'); // import
+            } else {
+                gridEl.classList.remove('reverse'); // export
+            }
+        }
+
+        // 🔋 BATTERIJEN
         if (this.config.battery?.show) {
             (this.config.battery.list ?? []).forEach((b, i) => {
                 const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
@@ -143,14 +180,12 @@ class CscPowerCard extends HTMLElement {
 
                 const moveEl = this.shadowRoot.getElementById(`move_bat_${i}`);
                 if (moveEl) {
-                    // zichtbaar bij vermogen
                     moveEl.style.visibility = Math.abs(power) > 5 ? 'visible' : 'hidden';
 
-                    // richting (laden = negatief)
                     if (power < 0) {
-                        moveEl.classList.add('reverse');
+                        moveEl.classList.add('reverse'); // laden
                     } else {
-                        moveEl.classList.remove('reverse');
+                        moveEl.classList.remove('reverse'); // ontladen
                     }
                 }
             });
