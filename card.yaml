@@ -1,0 +1,36 @@
+type: custom:csc-power-card
+solar:
+  gateway:
+    entity: sensor.solar_power
+  groups:
+    - name: Dak 
+      relay: binary_sensor.relay
+      entities:
+        - sensor.solarpanel_1_production
+        - sensor.solarpanel_2_production
+        - sensor.solarpanel_3_production
+        - sensor.solarpanel_4_production
+        - sensor.solarpanel_5_production
+        - sensor.solarpanel_6_production
+        - sensor.solarpanel_7_production
+        - sensor.solarpanel_8_production
+home:
+  devices:
+    - name: Droger
+      entity: sensor.
+    - name: Wasmachine
+      entity: sensor.
+    - name: Koelkast
+      entity: sensor.
+grid:
+  entity: sensor.grid_power
+  
+battery:
+  list:
+    - name: Thuisbatterij 1
+      power: sensor.battery1_power
+      soc: sensor.battery1_soc
+
+    - name: Thuisbatterij 2
+      power: sensor.battery2_power
+      soc: sensor.battery2_soc
