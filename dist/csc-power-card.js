@@ -1,7 +1,7 @@
 class CscPowerCard extends HTMLElement {
     constructor() {
         super();
-        this.attachShadow({ mode: "open" });
+        this.attachShadow({mode: 'open'});
         this._initialized = false;
     }
 
@@ -15,110 +15,48 @@ class CscPowerCard extends HTMLElement {
     }
 
     initialRender() {
-        const animStartPos = 80;
-        const houseYCenter = 140;
-
         const groups = this.config.solar?.groups ?? [];
-        const batteries = this.config.battery?.show ? (this.config.battery?.list ?? []) : [];
-        const devices = this.config.home?.devices ?? [];
+        const devices = (this.config.home?.devices ?? []);
+        const batteries = this.config.battery?.list ?? [];
 
-        let allPaths = "";
-        let allLinesBg = "";
-        let allLinesMove = "";
-        let allDonuts = "";
-
-        // =====================
-        // 🌞 BASIS NODES
-        // =====================
-        allDonuts += this.renderDonut(80, animStartPos, "#ff9800", "☀️", "Zon", "zon");
-        allDonuts += this.renderDonut(200, houseYCenter, "#2196f3", "🏠", "Huis", "huis");
-        allDonuts += this.renderDonut(320, animStartPos, "#8353d1", "🔌", "Net", "net");
-
-        // =====================
-        // ☀️ SOLAR GROUPS (ZONNEPANELEN)
-        // =====================
-        groups.forEach((group, gIdx) => {
-            const startY = 20 + (gIdx * 120);
-
-            (group.entities || []).forEach((item, i) => {
-                const col = i % 4;
-                const row = Math.floor(i / 4);
-
-                const x = 60 + (col * 90);
-                const y = startY + (row * 70);
-
-                const pathId = `path_g${gIdx}_i${i}`;
-
-                const path = `
-                    M ${x} ${y - 20}
-                    L ${x} ${y - 60}
-                    L 80 ${y - 60}
-                    L 80 ${houseYCenter}
-                `;
-
-                allPaths += `<path id="${pathId}" d="${path}" />`;
-                allLinesBg += `<use class="line-bg" href="#${pathId}" />`;
-                allLinesMove += `<use class="line-move" id="move_g${gIdx}_i${i}" href="#${pathId}" />`;
-
-                allDonuts += this.renderDonut(
-                    x,
-                    y,
-                    "#ffeb3b",
-                    "☀️",
-                    `P${i + 1}`,
-                    `g${gIdx}_i${i}`
-                );
-            });
+        let currentYPos = 15;
+        const groupPositions = groups.map(group => {
+            const pos = currentYPos;
+            const rows = Math.ceil((group.entities || []).length / 4);
+            currentYPos += (rows * 70) + 25;
+            return pos;
         });
 
-        // =====================
-        // ☀️ ZON → HUIS
-        // =====================
-        const solarPath = `
-            M 80 ${animStartPos + 20}
-            L 80 ${houseYCenter}
-            L 200 ${houseYCenter}
-        `;
-        allPaths += `<path id="path_solar" d="${solarPath}" />`;
-        allLinesBg += `<use class="line-bg" href="#path_solar" />`;
-        allLinesMove += `<use class="line-move" id="move_solar" href="#path_solar" />`;
+        const flowBoxY = currentYPos + 5;
+        const animStartPos = flowBoxY + 75;
+        const shiftY = 50;
+        const houseYCenter = animStartPos + shiftY;
+
+        let allPaths = '';
+        let allLinesBg = '';
+        let allLinesMove = '';
+        let allDonuts = '';
+        let allLabels = '';
 
         // =====================
-        // 🔌 NET ↔ HUIS
+        // 🔋 BATTERIJ POSITIES
         // =====================
-        const gridPath = `
-            M 320 ${animStartPos + 20}
-            L 320 ${houseYCenter}
-            L 200 ${houseYCenter}
-        `;
-        allPaths += `<path id="path_grid" d="${gridPath}" />`;
-        allLinesBg += `<use class="line-bg" href="#path_grid" />`;
-        allLinesMove += `<use class="line-move" id="move_grid" href="#path_grid" />`;
-
-        // =====================
-        // 🔋 BATTERIJEN
-        // =====================
-        const batteryY = houseYCenter + 120;
-        const batteryStartX = 140;
+        const batY = houseYCenter - 90;
+        const batStartX = 140;
 
         batteries.forEach((b, i) => {
-            const x = batteryStartX + (i * 140);
+            const x = batStartX + (i * 120);
 
-            allDonuts += this.renderDonut(
-                x,
-                batteryY,
-                "#4caf50",
-                "🔋",
-                b.name,
-                `bat_${i}`
-            );
+            // donut
+            allDonuts += `<g>${this.renderDonutStatic(x, batY, "#4caf50", "🔋", b.name, `bat_${i}`, 20, 6)}</g>`;
 
+            // pad huis ↔ batterij
             const pathId = `path_bat_${i}`;
             const path = `
-                M 200 ${houseYCenter + 20}
-                L 200 ${batteryY - 40}
-                L ${x} ${batteryY - 40}
-                L ${x} ${batteryY - 18}
+                M 200 ${houseYCenter - 20}
+                L 200 ${batY + 40}
+                L ${x} ${batY + 40}
+                L ${x} ${batY + 18}
             `;
 
             allPaths += `<path id="${pathId}" d="${path}" />`;
@@ -127,175 +65,112 @@ class CscPowerCard extends HTMLElement {
         });
 
         // =====================
-        // 🔌 HOME DEVICES
+        // BASIS (ZON / HUIS / NET)
         // =====================
-        const deviceStartX = 450;
-        const deviceStartY = 40;
-
-        devices.forEach((d, i) => {
-            const col = i % 3;
-            const row = Math.floor(i / 3);
-
-            const x = deviceStartX + (col * 100);
-            const y = deviceStartY + (row * 80);
-
-            const pathId = `path_dev_${i}`;
-
-            const path = `
-                M 200 ${houseYCenter + 20}
-                L 200 ${y - 40}
-                L ${x} ${y - 40}
-                L ${x} ${y - 18}
-            `;
-
-            allPaths += `<path id="${pathId}" d="${path}" />`;
-            allLinesBg += `<use class="line-bg" href="#${pathId}" />`;
-            allLinesMove += `<use class="line-move" id="move_dev_${i}" href="#${pathId}" />`;
-
-            allDonuts += this.renderDonut(
-                x,
-                y,
-                "#03a9f4",
-                "🔌",
-                d.name,
-                `dev_${i}`
-            );
-        });
+        allPaths += `<path id="path_zon_huis" d="M 80 ${animStartPos + 25} L 80 ${animStartPos + shiftY} L 175 ${animStartPos + shiftY}" />`;
+        allPaths += `<path id="path_huis_net" d="M 225 ${animStartPos + shiftY} L 320 ${animStartPos + shiftY} L 320 ${animStartPos + 25}" />`;
 
         // =====================
-        // RENDER SVG
+        // RENDER
         // =====================
         this.shadowRoot.innerHTML = `
+        <style>
+            .line-bg { stroke:#333; stroke-width:2; fill:none; }
+            .line-move {
+                stroke:#00ffcc;
+                stroke-width:6;
+                stroke-linecap:round;
+                stroke-dasharray:0.3,100;
+                animation:flow 3s linear infinite;
+                filter: drop-shadow(0 0 6px #00ffcc);
+            }
+            .line-move.reverse { animation-direction: reverse; }
+
+            @keyframes flow {
+                from { stroke-dashoffset:100; }
+                to { stroke-dashoffset:0; }
+            }
+        </style>
+
         <ha-card>
-            <style>
-                .line-bg {
-                    fill: none;
-                    stroke: #333;
-                    stroke-width: 2px;
-                }
+        <svg viewBox="0 0 800 ${houseYCenter + 120}">
+            <defs>${allPaths}</defs>
 
-                .line-move {
-                    stroke: #00ffcc;
-                    stroke-width: 6;
-                    stroke-linecap: round;
-                    stroke-dasharray: 0.3, 100;
-                    fill: none;
-                    filter: drop-shadow(0px 0px 6px #00ffcc);
-                    animation: flow 3s linear infinite;
-                }
+            <g>${allLinesBg}</g>
+            <g>${allLinesMove}
+                <use class="line-move" id="move_zon" href="#path_zon_huis"/>
+                <use class="line-move" id="move_net" href="#path_huis_net"/>
+            </g>
 
-                .line-move.reverse {
-                    animation-direction: reverse;
-                }
-
-                @keyframes flow {
-                    from { stroke-dashoffset: 100; }
-                    to { stroke-dashoffset: 0; }
-                }
-
-                text {
-                    font-size: 12px;
-                    fill: white;
-                    font-family: sans-serif;
-                }
-            </style>
-
-            <svg viewBox="0 0 800 ${batteryY + 120}">
-                <defs>${allPaths}</defs>
-                <g>${allLinesBg}</g>
-                <g>${allLinesMove}</g>
-                <g>${allDonuts}</g>
-            </svg>
+            <g>${allDonuts}
+                ${this.renderDonutStatic(80, animStartPos, "#ff9800", "☀️", "Zon", "zon")}
+                ${this.renderDonutStatic(200, houseYCenter, "#2196f3", "🏠", "Huis", "huis")}
+                ${this.renderDonutStatic(320, animStartPos, "#8353d1", "🔌", "Net", "net")}
+            </g>
+        </svg>
         </ha-card>
         `;
+
+        this._initialized = true;
     }
 
-    renderDonut(x, y, color, icon, label, id) {
+    renderDonutStatic(x, y, color, icon, label, id) {
         return `
-        <circle cx="${x}" cy="${y}" r="18" fill="none" stroke="#444" stroke-width="5" />
-        <circle id="ring_${id}" cx="${x}" cy="${y}" r="18" fill="none" stroke="${color}" stroke-width="5"
+        <circle cx="${x}" cy="${y}" r="18" fill="none" stroke="#444" stroke-width="5"/>
+        <circle id="ring_${id}" cx="${x}" cy="${y}" r="18"
+            fill="none" stroke="${color}" stroke-width="5"
             stroke-dasharray="113" stroke-dashoffset="113"
-            transform="rotate(-90 ${x} ${y})" />
-        <text x="${x}" y="${y + 4}" text-anchor="middle">${icon}</text>
-        <text x="${x + 25}" y="${y - 4}">${label}</text>
-        <text id="val_${id}" x="${x + 25}" y="${y + 12}" fill="${color}">0W</text>
+            transform="rotate(-90 ${x} ${y})"/>
+        <text x="${x}" y="${y+5}" text-anchor="middle">${icon}</text>
+        <text x="${x+25}" y="${y-4}">${label}</text>
+        <text id="val_${id}" x="${x+25}" y="${y+12}" fill="${color}">0W</text>
         `;
     }
 
     render() {
         if (!this._hass || !this.config) return;
-
         if (!this._initialized) this.initialRender();
 
-        // =====================
-        // ☀️ ZON
-        // =====================
         const solar = parseFloat(this._hass.states[this.config.solar?.gateway?.entity]?.state ?? 0);
-        const solarEl = this.shadowRoot.getElementById("move_solar");
-
-        if (solarEl) {
-            solarEl.style.visibility = solar > 5 ? "visible" : "hidden";
-        }
-
-        const zonVal = this.shadowRoot.getElementById("val_zon");
-        if (zonVal) zonVal.textContent = `${Math.round(solar)}W`;
-
-        // =====================
-        // 🔌 GRID
-        // =====================
         const grid = parseFloat(this._hass.states[this.config.grid?.entity]?.state ?? 0);
-        const gridEl = this.shadowRoot.getElementById("move_grid");
-
-        if (gridEl) {
-            gridEl.style.visibility = Math.abs(grid) > 5 ? "visible" : "hidden";
-            gridEl.classList.toggle("reverse", grid > 0);
-        }
-
-        const netVal = this.shadowRoot.getElementById("val_net");
-        if (netVal) netVal.textContent = `${Math.round(grid)}W`;
-
-        // =====================
-        // 🏠 HUIS
-        // =====================
-        const home = solar + grid;
-        const huisVal = this.shadowRoot.getElementById("val_huis");
-        if (huisVal) huisVal.textContent = `${Math.round(home)}W`;
 
         // =====================
         // 🔋 BATTERIJEN
         // =====================
-        if (this.config.battery?.show) {
-            (this.config.battery.list ?? []).forEach((b, i) => {
-                const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
-                const soc = parseFloat(this._hass.states[b.soc]?.state ?? 0);
+        (this.config.battery?.list ?? []).forEach((b, i) => {
+            const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
+            const soc = parseFloat(this._hass.states[b.soc]?.state ?? 0);
 
-                const el = this.shadowRoot.getElementById(`val_bat_${i}`);
-                if (el) {
-                    el.textContent = `${Math.round(power)}W (${Math.round(soc)}%)`;
-                }
+            const el = this.shadowRoot.getElementById(`val_bat_${i}`);
+            if (el) el.textContent = `${Math.round(power)}W (${Math.round(soc)}%)`;
 
-                const move = this.shadowRoot.getElementById(`move_bat_${i}`);
-                if (move) {
-                    move.style.visibility = Math.abs(power) > 5 ? "visible" : "hidden";
-                    move.classList.toggle("reverse", power < 0);
-                }
-            });
-        }
-
-        // =====================
-        // 🔌 DEVICES
-        // =====================
-        (this.config.home?.devices ?? []).forEach((d, i) => {
-            const val = parseFloat(this._hass.states[d.entity]?.state ?? 0);
-
-            const el = this.shadowRoot.getElementById(`val_dev_${i}`);
-            if (el) el.textContent = `${Math.round(val)}W`;
-
-            const move = this.shadowRoot.getElementById(`move_dev_${i}`);
+            const move = this.shadowRoot.getElementById(`move_bat_${i}`);
             if (move) {
-                move.style.visibility = val > 5 ? "visible" : "hidden";
+                move.style.visibility = Math.abs(power) > 5 ? "visible" : "hidden";
+                move.classList.toggle("reverse", power < 0);
             }
         });
+
+        // =====================
+        // ZON / NET / HUIS
+        // =====================
+        this.updateEntity('zon', solar, 5000);
+        this.updateEntity('net', grid, 5000);
+        this.updateEntity('huis', solar + grid, 5000);
+
+        const moveZon = this.shadowRoot.getElementById('move_zon');
+        if (moveZon) moveZon.style.visibility = solar > 5 ? 'visible' : 'hidden';
+
+        const moveNet = this.shadowRoot.getElementById('move_net');
+        if (moveNet) {
+            moveNet.style.visibility = Math.abs(grid) > 5 ? 'visible' : 'hidden';
+            moveNet.classList.toggle('reverse', grid > 0);
+        }
+    }
+
+    updateEntity(id, val, max) {
+        const el = this.shadowRoot.getElementById(`val_${id}`);
+        if (el) el.textContent = `${Math.round(val)}W`;
     }
 }
 
