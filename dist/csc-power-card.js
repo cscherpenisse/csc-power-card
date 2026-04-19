@@ -35,6 +35,26 @@ class CscPowerCard extends HTMLElement {
         let allLinesBg = '';
         let allLinesMove = '';
         let allDonuts = '';
+
+        // 🔋 BATTERIJEN POSITIES
+        const batteries = this.config.battery?.list ?? [];
+        const batY = houseYCenter - 90;
+        const batPositions = [160, 240];
+
+        batteries.forEach((b, i) => {
+            const x = batPositions[i] || 200;
+
+            allDonuts += `<g>${this.renderDonutStatic(
+                x,
+                batY,
+                "#4caf50",
+                "🔋",
+                b.name || `Accu ${i+1}`,
+                `bat_${i}`,
+                25,
+                9
+            )}</g>`;
+        });
         let allLabels = '';
         // 3. GROEPEN (INVERTERS) VERWERKEN
         groups.forEach((group, groupIdx) => {
@@ -218,6 +238,27 @@ class CscPowerCard extends HTMLElement {
             // We sturen 'isDevice = true' mee om de animatie om te draaien en te vertragen
             this.updateEntity(`dev_${i}`, val, 3200, true);
         });
+// =====================
+// 🔋 BATTERIJEN UPDATE
+// =====================
+(this.config.battery?.list ?? []).forEach((b, i) => {
+    const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
+    const soc = parseFloat(this._hass.states[b.soc]?.state ?? 0);
+
+    // Tekst (vermogen + %)
+    const valEl = this.shadowRoot.getElementById(`val_bat_${i}`);
+    if (valEl) {
+        valEl.textContent = `${Math.round(power)}W (${Math.round(soc)}%)`;
+    }
+
+    // Ring (alleen SOC gebruiken)
+    const ringEl = this.shadowRoot.getElementById(`ring_bat_${i}`);
+    if (ringEl) {
+        const circumference = 113;
+        const offset = circumference - (Math.min(Math.max(soc, 0), 100) / 100) * circumference;
+        ringEl.style.strokeDashoffset = offset;
+    }
+});
     }
 
     updateEntity(id, val, max, isDevice = false) {
