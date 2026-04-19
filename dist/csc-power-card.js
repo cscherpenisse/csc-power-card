@@ -37,7 +37,8 @@ class CscPowerCard extends HTMLElement {
         let allDonuts = '';
 
         // 🔋 BATTERIJEN POSITIES
-        const batteries = this.config.battery?.list ?? [];
+        const showBatteries = this.config.battery?.show !== false;
+        const batteries = showBatteries ? (this.config.battery?.list ?? []) : [];
         const batY = houseYCenter - 90;
         const batPositions = [160, 240];
 
@@ -54,6 +55,39 @@ class CscPowerCard extends HTMLElement {
                 25,
                 9
             )}</g>`;
+const batY = houseYCenter - 90;
+const batPositions = [160, 240];
+
+batteries.forEach((b, i) => {
+    const x = batPositions[i] || 200;
+
+    // 🔋 Donut
+    allDonuts += `<g>${this.renderDonutStatic(
+        x,
+        batY,
+        "#4caf50",
+        "🔋",
+        b.name || `Accu ${i+1}`,
+        `bat_${i}`,
+        25,
+        9
+    )}</g>`;
+
+    // 🔁 FLOW PAD: batterij → huis (bovenkant)
+    const pathId = `path_bat_huis_${i}`;
+
+    allPaths += `
+        <path id="${pathId}" d="
+            M ${x} ${batY + 20}
+            L ${x} ${houseYCenter - 40}
+            L 200 ${houseYCenter - 40}
+            L 200 ${houseYCenter - 18}
+        " />
+    `;
+
+    allLinesBg += `<use class="line-bg" href="#${pathId}" />`;
+    allLinesMove += `<use class="line-move" id="move_bat_${i}" href="#${pathId}" />`;
+});
         });
         let allLabels = '';
         // 3. GROEPEN (INVERTERS) VERWERKEN
@@ -275,6 +309,31 @@ class CscPowerCard extends HTMLElement {
             ringEl.style.stroke = "#4caf50"; // groen = ontladen
         }
     }
+});
+// 🔁 FLOW batterij → huis
+(this.config.battery?.show !== false ? this.config.battery?.list : []).forEach((b, i) => {
+    const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
+
+    const moveEl = this.shadowRoot.getElementById(`move_bat_${i}`);
+    if (!moveEl) return;
+
+    const absPower = Math.abs(power);
+
+    // zichtbaar bij activiteit
+    moveEl.style.visibility = absPower > 5 ? 'visible' : 'hidden';
+
+    // richting:
+    // 🔋 → 🏠 bij ontladen (negatief)
+    // 🏠 → 🔋 bij laden (positief)
+    if (power > 0) {
+        moveEl.classList.add('reverse');   // laden
+    } else {
+        moveEl.classList.remove('reverse'); // ontladen
+    }
+
+    // snelheid (zelfde stijl als rest)
+    const duration = absPower > 5 ? Math.max(0.5, 3 - (absPower / 500)) : 0;
+    moveEl.style.animationDuration = `${duration}s`;
 });
     }
 
