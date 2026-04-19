@@ -174,6 +174,7 @@ class CscPowerCard extends HTMLElement {
         <circle id="ring_${id}" cx="${x}" cy="${y}" r="${radius}" fill="none" stroke="${color}" stroke-width="5" stroke-dasharray="113" stroke-dashoffset="113" stroke-linecap="round" transform="rotate(-90 ${x} ${y})" />
         
         <!-- Hier gebruiken we nu de nieuwe variabelen -->
+        <text id="soc_${id}" x="${x}" y="${y - radius - 8}" text-anchor="middle" font-size="12px" fill="#aaa"></text>
         <text x="${x}" y="${y + iconY}" text-anchor="middle" font-size="${iconSize}px">${icon}</text>        
         
         <text x="${x + 5 + radius}" y="${y - 4}" text-anchor="start" font-size="${fontsize}px" fill="var(--primary-text-color)">${label}</text>
@@ -239,24 +240,40 @@ class CscPowerCard extends HTMLElement {
             this.updateEntity(`dev_${i}`, val, 3200, true);
         });
 // =====================
-// 🔋 BATTERIJEN UPDATE
+// 🔋 BATTERIJEN UPDATE Max 2 stuks
 // =====================
 (this.config.battery?.list ?? []).forEach((b, i) => {
     const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
     const soc = parseFloat(this._hass.states[b.soc]?.state ?? 0);
 
-    // Tekst (vermogen + %)
-    const valEl = this.shadowRoot.getElementById(`val_bat_${i}`);
-    if (valEl) {
-        valEl.textContent = `${Math.round(power)}W (${Math.round(soc)}%)`;
+    // 🔋 SOC boven batterij
+    const socEl = this.shadowRoot.getElementById(`soc_bat_${i}`);
+    if (socEl) {
+        socEl.textContent = `${Math.round(soc)}%`;
     }
 
-    // Ring (alleen SOC gebruiken)
+    // ⚡ Vermogen tekst
+    const valEl = this.shadowRoot.getElementById(`val_bat_${i}`);
+    if (valEl) {
+        valEl.textContent = `${Math.round(power)}W`;
+    }
+
+    // 🎯 RING = VERMOGEN (-800 tot +800)
     const ringEl = this.shadowRoot.getElementById(`ring_bat_${i}`);
     if (ringEl) {
+        const max = 800;
+        const absPower = Math.min(Math.abs(power), max);
+
         const circumference = 113;
-        const offset = circumference - (Math.min(Math.max(soc, 0), 100) / 100) * circumference;
+        const offset = circumference - (absPower / max) * circumference;
         ringEl.style.strokeDashoffset = offset;
+
+        // 🎨 KLEUR
+        if (power >= 0) {
+            ringEl.style.stroke = "#9c27b0"; // paars = laden
+        } else {
+            ringEl.style.stroke = "#4caf50"; // groen = ontladen
+        }
     }
 });
     }
