@@ -42,6 +42,34 @@ class CscPowerCard extends HTMLElement {
         const batPositions = [160, 240];
 
         batteries.forEach((b, i) => {
+
+// =====================
+// 🔋 BATTERIJ LIJNEN
+// =====================
+
+// lijn tussen batterijen
+if (batteries.length >= 2) {
+    const yLine = batY;
+    allPaths += `<path id="path_bat_link" d="M ${batPositions[0]} ${yLine} L ${batPositions[1]} ${yLine}" />`;
+    allLinesBg += `<use class="line-bg" href="#path_bat_link" />`;
+    allLinesMove += `<use class="line-move" id="move_bat_link" href="#path_bat_link" />`;
+}
+
+// lijn van batterijen naar huis (naar midden van bestaande huis lijn)
+const houseX = 200;
+const houseLineY = houseYCenter;
+
+// midden tussen batterijen
+const batMidX = batPositions.length >= 2 
+    ? (batPositions[0] + batPositions[1]) / 2 
+    : batPositions[0];
+
+allPaths += `<path id="path_bat_huis" d="M ${batMidX} ${batY + 25} L ${batMidX} ${houseLineY - 20} L ${houseX} ${houseLineY}" />`;
+allLinesBg += `<use class="line-bg" href="#path_bat_huis" />`;
+allLinesMove += `<use class="line-move" id="move_bat_huis" href="#path_bat_huis" />`;
+// =====================
+// 🔋 BATTERIJ LIJNEN
+// =====================
             const x = batPositions[i] || 200;
 
             allDonuts += `<g>${this.renderDonutStatic(
@@ -243,6 +271,42 @@ class CscPowerCard extends HTMLElement {
 // 🔋 BATTERIJEN UPDATE Max 2 stuks
 // =====================
 (this.config.battery?.list ?? []).forEach((b, i) => {
+    // =====================
+// 🔋 BATTERIJ FLOW
+// =====================
+let totalBatPower = 0;
+
+(this.config.battery?.list ?? []).forEach((b) => {
+    const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
+    totalBatPower += power;
+});
+
+const moveBat = this.shadowRoot.getElementById("move_bat_huis");
+if (moveBat) {
+    const absVal = Math.abs(totalBatPower);
+
+    let duration = absVal > 5 ? Math.max(0.5, 3 - (absVal / 500)) : 0;
+    moveBat.style.animationDuration = `${duration}s`;
+
+    // 🔁 richting:
+    // laden = van huis naar batterij → reverse
+    // ontladen = batterij → huis → normaal
+    if (totalBatPower > 0) {
+        moveBat.classList.add("reverse");
+    } else {
+        moveBat.classList.remove("reverse");
+    }
+
+    moveBat.style.visibility = absVal > 5 ? "visible" : "hidden";
+}
+
+// animatie tussen batterijen (optioneel visueel)
+const moveBatLink = this.shadowRoot.getElementById("move_bat_link");
+if (moveBatLink) {
+    const absVal = Math.abs(totalBatPower);
+    moveBatLink.style.animationDuration = "2s";
+    moveBatLink.style.visibility = absVal > 50 ? "visible" : "hidden";
+}
     const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
     const soc = parseFloat(this._hass.states[b.soc]?.state ?? 0);
 
