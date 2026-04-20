@@ -44,40 +44,44 @@ class CscPowerCard extends HTMLElement {
         batteries.forEach((b, i) => {
 
 // =====================
-// 🔋 BATTERIJ LIJNEN (NETTE UITLIJNING)
+// 🔋 BATTERIJ LIJNEN
 // =====================
 
+// lijn tussen batterijen
+if (batteries.length >= 2) {
+    const yLine = batY;
+    allPaths += `<path id="path_bat_link" d="M ${batPositions[0]} ${yLine} L ${batPositions[1]} ${yLine}" />`;
+    allLinesBg += `<use class="line-bg" href="#path_bat_link" />`;
+    allLinesMove += `<use class="line-move" id="move_bat_link" href="#path_bat_link" />`;
+}
+
+// lijn van batterijen naar huis (naar midden van bestaande huis lijn)
 const houseX = 200;
-const houseY = houseYCenter;
+const houseLineY = houseYCenter;
 
 // midden tussen batterijen
 const batMidX = batPositions.length >= 2 
     ? (batPositions[0] + batPositions[1]) / 2 
     : batPositions[0];
 
-// 🔹 1. horizontale lijn tussen batterijen
-if (batteries.length >= 2) {
-    allPaths += `
-        <path id="path_bat_link"
-        d="M ${batPositions[0]} ${batY}
-           L ${batPositions[1]} ${batY}" />
-    `;
-
-    allLinesBg += `<use class="line-bg" href="#path_bat_link" />`;
-    allLinesMove += `<use class="line-move" id="move_bat_link" href="#path_bat_link" />`;
-}
-
-// 🔹 2. verticale lijn exact vanuit midden naar huis
-allPaths += `
-    <path id="path_bat_huis"
-    d="M ${batMidX} ${batY}
-       L ${batMidX} ${houseY - 25}
-       L ${houseX} ${houseY - 25}
-       L ${houseX} ${houseY - 18}" />
-`;
-
+allPaths += `<path id="path_bat_huis" d="M ${batMidX} ${batY + 25} L ${batMidX} ${houseLineY - 20} L ${houseX} ${houseLineY}" />`;
 allLinesBg += `<use class="line-bg" href="#path_bat_huis" />`;
 allLinesMove += `<use class="line-move" id="move_bat_huis" href="#path_bat_huis" />`;
+// =====================
+// 🔋 BATTERIJ LIJNEN
+// =====================
+            const x = batPositions[i] || 200;
+
+            allDonuts += `<g>${this.renderDonutStatic(
+                x,
+                batY,
+                "#4caf50",
+                "🔋",
+                b.name || `Accu ${i+1}`,
+                `bat_${i}`,
+                25,
+                9
+            )}</g>`;
         });
         let allLabels = '';
         // 3. GROEPEN (INVERTERS) VERWERKEN
