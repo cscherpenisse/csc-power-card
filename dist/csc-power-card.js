@@ -41,12 +41,9 @@ class CscPowerCard extends HTMLElement {
         const batY = houseYCenter - 90;
         const batPositions = [160, 240];
 
-        batteries.forEach((b, i) => {
-
 // =====================
-// 🔋 BATTERIJ LIJNEN (per batterij)
+// 🔋 BATTERIJ LIJNEN (correct geplaatst)
 // =====================
-
 const houseX = 200;
 const houseLineY = houseYCenter;
 
@@ -54,7 +51,6 @@ batteries.forEach((b, i) => {
     const x = batPositions[i] || 200;
     const pathId = `path_bat_${i}`;
 
-    // rechte lijn naar huis met kleine knik
     const pathD = `
         M ${x} ${batY + 25}
         L ${x} ${houseLineY - 20}
@@ -266,49 +262,64 @@ batteries.forEach((b, i) => {
             this.updateEntity(`dev_${i}`, val, 3200, true);
         });
 // =====================
-// 🔋 BATTERIJEN UPDATE Max 2 stuks
+// 🔋 BATTERIJ FLOW (NIEUW + YAML gestuurd)
 // =====================
+
 const batConfig = this.config.battery ?? {};
 const minPower = batConfig.min_power ?? 50;
 const maxPower = batConfig.max_power ?? 2000;
 
-// snelheid grenzen (in seconden)
-const minDuration = 0.6;  // snelste animatie
-const maxDuration = 4;    // langzaamste animatie
+const minDuration = 0.6;
+const maxDuration = 4;
 
 (this.config.battery?.list ?? []).forEach((b, i) => {
     const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
-    const moveBat = this.shadowRoot.getElementById(`move_bat_${i}`);
+    const soc = parseFloat(this._hass.states[b.soc]?.state ?? 0);
 
-    if (!moveBat) return;
+    const moveBat = this.shadowRoot.getElementById(`move_bat_${i}`);
+    const valEl = this.shadowRoot.getElementById(`val_bat_${i}`);
+    const socEl = this.shadowRoot.getElementById(`soc_bat_${i}`);
+    const ringEl = this.shadowRoot.getElementById(`ring_bat_${i}`);
 
     const absVal = Math.abs(power);
 
-    // 🚫 onder minimum → geen flow
-    if (absVal < minPower) {
-        moveBat.style.visibility = "hidden";
-        return;
+    // 🔋 tekst
+    if (valEl) valEl.textContent = `${Math.round(power)}W`;
+    if (socEl) socEl.textContent = `${Math.round(soc)}%`;
+
+    // 🎯 ring
+    if (ringEl) {
+        const max = 800;
+        const clamped = Math.min(absVal, max);
+        const circumference = 113;
+        const offset = circumference - (clamped / max) * circumference;
+        ringEl.style.strokeDashoffset = offset;
+
+        ringEl.style.stroke = power >= 0 ? "#9c27b0" : "#4caf50";
     }
 
-    // 🔢 clamp tussen min en max
-    const clamped = Math.min(absVal, maxPower);
+    // ⚡ flow
+    if (moveBat) {
 
-    // 📈 lineaire schaal (0 → 1)
-    const ratio = (clamped - minPower) / (maxPower - minPower);
+        if (absVal < minPower) {
+            moveBat.style.visibility = "hidden";
+            return;
+        }
 
-    // ⚡ interpolatie snelheid
-    const duration = maxDuration - (ratio * (maxDuration - minDuration));
+        const clamped = Math.min(absVal, maxPower);
+        const ratio = (clamped - minPower) / (maxPower - minPower);
+        const duration = maxDuration - (ratio * (maxDuration - minDuration));
 
-    moveBat.style.animationDuration = `${duration}s`;
+        moveBat.style.animationDuration = `${duration}s`;
 
-    // 🔁 richting
-    if (power > 0) {
-        moveBat.classList.add("reverse");   // laden
-    } else {
-        moveBat.classList.remove("reverse"); // ontladen
+        if (power > 0) {
+            moveBat.classList.add("reverse"); // laden
+        } else {
+            moveBat.classList.remove("reverse"); // ontladen
+        }
+
+        moveBat.style.visibility = "visible";
     }
-
-    moveBat.style.visibility = "visible";
 });
 
     // 🔋 SOC boven batterij
