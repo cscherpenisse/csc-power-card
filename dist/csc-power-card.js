@@ -44,29 +44,27 @@ class CscPowerCard extends HTMLElement {
         batteries.forEach((b, i) => {
 
 // =====================
-// 🔋 BATTERIJ LIJNEN
+// 🔋 BATTERIJ LIJNEN (per batterij)
 // =====================
 
-// lijn tussen batterijen
-if (batteries.length >= 2) {
-    const yLine = batY;
-    allPaths += `<path id="path_bat_link" d="M ${batPositions[0]} ${yLine} L ${batPositions[1]} ${yLine}" />`;
-    allLinesBg += `<use class="line-bg" href="#path_bat_link" />`;
-    allLinesMove += `<use class="line-move" id="move_bat_link" href="#path_bat_link" />`;
-}
-
-// lijn van batterijen naar huis (naar midden van bestaande huis lijn)
 const houseX = 200;
 const houseLineY = houseYCenter;
 
-// midden tussen batterijen
-const batMidX = batPositions.length >= 2 
-    ? (batPositions[0] + batPositions[1]) / 2 
-    : batPositions[0];
+batteries.forEach((b, i) => {
+    const x = batPositions[i] || 200;
+    const pathId = `path_bat_${i}`;
 
-allPaths += `<path id="path_bat_huis" d="M ${batMidX} ${batY + 25} L ${batMidX} ${houseLineY - 20} L ${houseX} ${houseLineY}" />`;
-allLinesBg += `<use class="line-bg" href="#path_bat_huis" />`;
-allLinesMove += `<use class="line-move" id="move_bat_huis" href="#path_bat_huis" />`;
+    // rechte lijn naar huis met kleine knik
+    const pathD = `
+        M ${x} ${batY + 25}
+        L ${x} ${houseLineY - 20}
+        L ${houseX} ${houseLineY}
+    `;
+
+    allPaths += `<path id="${pathId}" d="${pathD}" />`;
+    allLinesBg += `<use class="line-bg" href="#${pathId}" />`;
+    allLinesMove += `<use class="line-move" id="move_bat_${i}" href="#${pathId}" />`;
+});
 // =====================
 // 🔋 BATTERIJ LIJNEN
 // =====================
@@ -271,35 +269,28 @@ allLinesMove += `<use class="line-move" id="move_bat_huis" href="#path_bat_huis"
 // 🔋 BATTERIJEN UPDATE Max 2 stuks
 // =====================
 (this.config.battery?.list ?? []).forEach((b, i) => {
-    // =====================
-// 🔋 BATTERIJ FLOW
-// =====================
-let totalBatPower = 0;
-
-(this.config.battery?.list ?? []).forEach((b) => {
+(this.config.battery?.list ?? []).forEach((b, i) => {
     const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
-    totalBatPower += power;
-});
+    const moveBat = this.shadowRoot.getElementById(`move_bat_${i}`);
 
-const moveBat = this.shadowRoot.getElementById("move_bat_huis");
-if (moveBat) {
-    const absVal = Math.abs(totalBatPower);
+    if (moveBat) {
+        const absVal = Math.abs(power);
 
-    let duration = absVal > 5 ? Math.max(0.5, 3 - (absVal / 500)) : 0;
-    moveBat.style.animationDuration = `${duration}s`;
+        let duration = absVal > 5 ? Math.max(0.5, 3 - (absVal / 500)) : 0;
+        moveBat.style.animationDuration = `${duration}s`;
 
-    // 🔁 richting:
-    // laden = van huis naar batterij → reverse
-    // ontladen = batterij → huis → normaal
-    if (totalBatPower > 0) {
-        moveBat.classList.add("reverse");
-    } else {
-        moveBat.classList.remove("reverse");
+        // 🔁 richting:
+        // laden (+) = huis → batterij → reverse
+        // ontladen (-) = batterij → huis → normaal
+        if (power > 0) {
+            moveBat.classList.add("reverse");
+        } else {
+            moveBat.classList.remove("reverse");
+        }
+
+        moveBat.style.visibility = absVal > 5 ? "visible" : "hidden";
     }
-
-    moveBat.style.visibility = absVal > 5 ? "visible" : "hidden";
-}
-
+});
 // animatie tussen batterijen (optioneel visueel)
 const moveBatLink = this.shadowRoot.getElementById("move_bat_link");
 if (moveBatLink) {
