@@ -310,15 +310,6 @@ const maxDuration = 4;    // langzaamste animatie
 
     moveBat.style.visibility = "visible";
 });
-// animatie tussen batterijen (optioneel visueel)
-const moveBatLink = this.shadowRoot.getElementById("move_bat_link");
-if (moveBatLink) {
-    const absVal = Math.abs(totalBatPower);
-    moveBatLink.style.animationDuration = "2s";
-    moveBatLink.style.visibility = absVal > 50 ? "visible" : "hidden";
-}
-    const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
-    const soc = parseFloat(this._hass.states[b.soc]?.state ?? 0);
 
     // 🔋 SOC boven batterij
     const socEl = this.shadowRoot.getElementById(`soc_bat_${i}`);
