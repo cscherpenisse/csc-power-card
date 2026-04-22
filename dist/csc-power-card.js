@@ -268,28 +268,47 @@ batteries.forEach((b, i) => {
 // =====================
 // 🔋 BATTERIJEN UPDATE Max 2 stuks
 // =====================
-(this.config.battery?.list ?? []).forEach((b, i) => {
+const batConfig = this.config.battery ?? {};
+const minPower = batConfig.min_power ?? 50;
+const maxPower = batConfig.max_power ?? 2000;
+
+// snelheid grenzen (in seconden)
+const minDuration = 0.6;  // snelste animatie
+const maxDuration = 4;    // langzaamste animatie
+
 (this.config.battery?.list ?? []).forEach((b, i) => {
     const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
     const moveBat = this.shadowRoot.getElementById(`move_bat_${i}`);
 
-    if (moveBat) {
-        const absVal = Math.abs(power);
+    if (!moveBat) return;
 
-        let duration = absVal > 5 ? Math.max(0.5, 3 - (absVal / 500)) : 0;
-        moveBat.style.animationDuration = `${duration}s`;
+    const absVal = Math.abs(power);
 
-        // 🔁 richting:
-        // laden (+) = huis → batterij → reverse
-        // ontladen (-) = batterij → huis → normaal
-        if (power > 0) {
-            moveBat.classList.add("reverse");
-        } else {
-            moveBat.classList.remove("reverse");
-        }
-
-        moveBat.style.visibility = absVal > 5 ? "visible" : "hidden";
+    // 🚫 onder minimum → geen flow
+    if (absVal < minPower) {
+        moveBat.style.visibility = "hidden";
+        return;
     }
+
+    // 🔢 clamp tussen min en max
+    const clamped = Math.min(absVal, maxPower);
+
+    // 📈 lineaire schaal (0 → 1)
+    const ratio = (clamped - minPower) / (maxPower - minPower);
+
+    // ⚡ interpolatie snelheid
+    const duration = maxDuration - (ratio * (maxDuration - minDuration));
+
+    moveBat.style.animationDuration = `${duration}s`;
+
+    // 🔁 richting
+    if (power > 0) {
+        moveBat.classList.add("reverse");   // laden
+    } else {
+        moveBat.classList.remove("reverse"); // ontladen
+    }
+
+    moveBat.style.visibility = "visible";
 });
 // animatie tussen batterijen (optioneel visueel)
 const moveBatLink = this.shadowRoot.getElementById("move_bat_link");
