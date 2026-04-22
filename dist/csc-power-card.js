@@ -41,16 +41,20 @@ class CscPowerCard extends HTMLElement {
         const batY = houseYCenter - 90;
         const batPositions = [160, 240];
 
+        batteries.forEach((b, i) => {
+
 // =====================
-// 🔋 BATTERIJ LIJNEN (correct geplaatst)
+// 🔋 BATTERIJ LIJNEN (per batterij)
 // =====================
-const houseX = 200;
+
+const houseX = 250;
 const houseLineY = houseYCenter;
 
 batteries.forEach((b, i) => {
     const x = batPositions[i] || 200;
     const pathId = `path_bat_${i}`;
 
+    // rechte lijn naar huis met kleine knik
     const pathD = `
         M ${x} ${batY + 25}
         L ${x} ${houseLineY - 20}
@@ -262,65 +266,40 @@ batteries.forEach((b, i) => {
             this.updateEntity(`dev_${i}`, val, 3200, true);
         });
 // =====================
-// 🔋 BATTERIJ FLOW (NIEUW + YAML gestuurd)
+// 🔋 BATTERIJEN UPDATE Max 2 stuks
 // =====================
-
-const batConfig = this.config.battery ?? {};
-const minPower = batConfig.min_power ?? 50;
-const maxPower = batConfig.max_power ?? 2000;
-
-const minDuration = 0.6;
-const maxDuration = 4;
-
+(this.config.battery?.list ?? []).forEach((b, i) => {
 (this.config.battery?.list ?? []).forEach((b, i) => {
     const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
-    const soc = parseFloat(this._hass.states[b.soc]?.state ?? 0);
-
     const moveBat = this.shadowRoot.getElementById(`move_bat_${i}`);
-    const valEl = this.shadowRoot.getElementById(`val_bat_${i}`);
-    const socEl = this.shadowRoot.getElementById(`soc_bat_${i}`);
-    const ringEl = this.shadowRoot.getElementById(`ring_bat_${i}`);
 
-    const absVal = Math.abs(power);
-
-    // 🔋 tekst
-    if (valEl) valEl.textContent = `${Math.round(power)}W`;
-    if (socEl) socEl.textContent = `${Math.round(soc)}%`;
-
-    // 🎯 ring
-    if (ringEl) {
-        const max = 800;
-        const clamped = Math.min(absVal, max);
-        const circumference = 113;
-        const offset = circumference - (clamped / max) * circumference;
-        ringEl.style.strokeDashoffset = offset;
-
-        ringEl.style.stroke = power >= 0 ? "#9c27b0" : "#4caf50";
-    }
-
-    // ⚡ flow
     if (moveBat) {
+        const absVal = Math.abs(power);
 
-        if (absVal < minPower) {
-            moveBat.style.visibility = "hidden";
-            return;
-        }
-
-        const clamped = Math.min(absVal, maxPower);
-        const ratio = (clamped - minPower) / (maxPower - minPower);
-        const duration = maxDuration - (ratio * (maxDuration - minDuration));
-
+        let duration = absVal > 5 ? Math.max(0.5, 3 - (absVal / 500)) : 0;
         moveBat.style.animationDuration = `${duration}s`;
 
+        // 🔁 richting:
+        // laden (+) = huis → batterij → reverse
+        // ontladen (-) = batterij → huis → normaal
         if (power > 0) {
-            moveBat.classList.add("reverse"); // laden
+            moveBat.classList.add("reverse");
         } else {
-            moveBat.classList.remove("reverse"); // ontladen
+            moveBat.classList.remove("reverse");
         }
 
-        moveBat.style.visibility = "visible";
+        moveBat.style.visibility = absVal > 5 ? "visible" : "hidden";
     }
 });
+// animatie tussen batterijen (optioneel visueel)
+const moveBatLink = this.shadowRoot.getElementById("move_bat_link");
+if (moveBatLink) {
+    const absVal = Math.abs(totalBatPower);
+    moveBatLink.style.animationDuration = "2s";
+    moveBatLink.style.visibility = absVal > 50 ? "visible" : "hidden";
+}
+    const power = parseFloat(this._hass.states[b.power]?.state ?? 0);
+    const soc = parseFloat(this._hass.states[b.soc]?.state ?? 0);
 
     // 🔋 SOC boven batterij
     const socEl = this.shadowRoot.getElementById(`soc_bat_${i}`);
